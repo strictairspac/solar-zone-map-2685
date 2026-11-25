@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy import insert, select
 
 from src.constants.job_state import JobState
+from src.constants.purge_state import PurgeState
 from src.domain.scenario import CONFIG
 from src.models.cases import cases
 from src.models.runs import runs
@@ -28,9 +29,22 @@ def list_entries(db):
 def enqueue(db, case_id, parameter, actor):
     if parameter > CONFIG["max_parameter"]:
         raise HTTPException(422, f"参数不能超过 {CONFIG['max_parameter']}")
-    case_service.get(db, case_id)
+    # Lock the warranty batch so acceptance and expiry cannot interleave: once
+    # clearance starts, no new inspection is accepted for this batch.
+    case = db.execute(select(cases).where(cases.c.id == case_id).with_for_update()).mappings().first()
+    if case is None:
+        raise HTTPException(404, "资料不存在")
+    accepted = int(time())
+    # Acceptance stops at the retention deadline itself, even if the worker has
+    # not swept the batch yet. Only inspections accepted before it may proceed.
+    expired = case["expires_at"] is not None and case["expires_at"] <= accepted
+    if expired or case["purge_state"] != PurgeState.ACTIVE:
+        raise HTTPException(409, "该质保批已到期待清退，不再接收新的抽检")
+    if case["payload"] is None:
+        raise HTTPException(409, "该质保批的原始读数已清退，不能提交抽检")
     change = db.execute(insert(runs).values(
-        case_id=case_id, status=JobState.QUEUED, parameter=parameter, actor=actor, created_at=int(time())
+        case_id=case_id, status=JobState.QUEUED, parameter=parameter, actor=actor,
+        created_at=accepted, accepted_at=accepted, source=case["payload"],
     ))
     run_id = change.inserted_primary_key[0]
     audit.record(db, "enqueue", actor, "run", run_id)

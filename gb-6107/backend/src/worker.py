@@ -6,6 +6,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.config.resources import cache, engine
+from src.services import retention
 from src.services.execution import JobFailure, fail, service_one
 
 logging.basicConfig(level=logging.INFO)
@@ -23,6 +24,9 @@ def work():
     while True:
         try:
             cache.set("workbench:heartbeat", time.time(), ex=90)
+            # Start clearing expired warranty batches even when no run is queued,
+            # so no new inspection can be accepted after the deadline.
+            retention.sweep()
             try:
                 if service_one():
                     continue

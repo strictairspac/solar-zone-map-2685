@@ -43,6 +43,12 @@ def export(run_id: int):
         if run["status"] != JobState.DONE:
             raise HTTPException(409, "没有可导出的执行结果")
         run["review"] = reviews.get(db, run_id)
+        if run["result"] is None:
+            # Execution copies were cleared; the signed receipt keeps the
+            # board items and page-skip basis it captured at signing time.
+            if not run["review"] or not run["review"].get("evidence"):
+                raise HTTPException(410, "执行副本已清退，且没有签署回执可导出")
+            run["result"] = run["review"]["evidence"]
     return Response(canonical_json(run), media_type="application/json", headers={
         "Content-Disposition": f"attachment; filename=evidence-{run_id}.json",
     })

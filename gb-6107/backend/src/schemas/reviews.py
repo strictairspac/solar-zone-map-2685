@@ -16,3 +16,5 @@ class ReviewEntry(ReviewInput):
     run_id: int
     actor: str
     created_at: int
+    # Frozen receipt contents: board items and page-skip basis at signing time.
+    evidence: dict | None = None

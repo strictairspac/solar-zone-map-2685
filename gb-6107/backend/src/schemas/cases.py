@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field, field_validator
 
+from src.constants.purge_state import PurgeState
 from src.utils.serial import canonical_json
 
 
@@ -7,6 +8,7 @@ class CaseInput(BaseModel):
     title: str = Field(min_length=2, max_length=120)
     description: str = Field(default="", max_length=420)
     payload: dict
+    expires_at: int | None = Field(default=None, ge=0)
 
     @field_validator("title")
     @classmethod
@@ -23,7 +25,28 @@ class CaseInput(BaseModel):
         return payload
 
 
-class CaseEntry(CaseInput):
+class PurgeProgress(BaseModel):
+    state: PurgeState
+    expired: bool
+    expires_at: int | None
+    started_at: int | None
+    purged_at: int | None
+    accepted_runs: int
+    pending_runs: int
+    readings_retained: bool
+    copies_retained: bool
+
+
+class CaseEntry(BaseModel):
     id: int
     code: str
+    title: str
+    description: str
+    payload: dict | None
     created_by: str
+    progress: PurgeProgress | None = None
+
+
+class PurgeEntry(BaseModel):
+    id: int
+    progress: PurgeProgress

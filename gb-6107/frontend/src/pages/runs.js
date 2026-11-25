@@ -9,7 +9,8 @@ import { time } from "../utils/format.js";
 function reportState(run) {
   return el("div", {class: "stack", id: "run-state"}, status(run.status),
     el("p", {}, run.status === "queued" ? "后台正在处理，页面会自动更新。" : run.failure || run.result?.summary),
-    run.status === "done" ? el("a", {class: "button", href: `#evidence/${run.id}`}, "查看业务证据") : null);
+    run.status === "done" ? el("a", {class: "button", href: `#evidence/${run.id}`},
+      run.result ? "查看业务证据" : "查看签署回执") : null);
 }
 
 export async function runsPage(config, route, signal) {

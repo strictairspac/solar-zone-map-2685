@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+
 from src.constants.job_state import JobState
 
 
@@ -18,3 +19,5 @@ class RunEntry(BaseModel):
     result: dict | None
     failure: str | None
     digest: str | None
+    accepted_at: int | None = None
+    purged_at: int | None = None
